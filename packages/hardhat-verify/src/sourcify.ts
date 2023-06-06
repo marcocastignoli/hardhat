@@ -1,0 +1,188 @@
+import type { Dispatcher } from "undici";
+
+import {
+  ContractStatusPollingError,
+  ContractStatusPollingInvalidStatusCodeError,
+  ContractVerificationRequestError,
+  ContractVerificationMissingBytecodeError,
+  ContractVerificationInvalidStatusCodeError,
+  MissingApiKeyError,
+  ContractStatusPollingResponseNotOkError,
+} from "./errors";
+import { sendGetRequest, sendPostJSONRequest, sendPostRequest } from "./undici";
+
+import { ChainConfig, ApiKey } from "./types";
+import { sleep } from "./utilities";
+import { NomicLabsHardhatPluginError } from "hardhat/src/plugins";
+
+class HardhatSourcifyError extends NomicLabsHardhatPluginError {
+  constructor(message: string, parent?: Error) {
+    super("@nomicfoundation/hardhat-verify", message, parent);
+  }
+}
+
+interface SourcifyVerifyRequestParams {
+  address: string;
+  files: {
+    [index: string]: string
+  };
+  sourceName: string;
+  chosenContract?: number
+}
+
+// Used for polling the result of the contract verification.
+const VERIFICATION_STATUS_POLLING_TIME = 3000;
+
+export class Sourcify {
+  private _apiUrl: string;
+  private _browserUrl: string;
+  private _chainId: number;
+
+  constructor(chainId: number) {
+    this._apiUrl = 'https://sourcify.dev/server';
+    this._browserUrl = 'https://repo.sourcify.dev';
+    this._chainId = chainId;
+  }
+
+  // https://docs.sourcify.dev/docs/api/server/check-all-by-addresses/
+  public async isVerified(address: string) {
+    const parameters = new URLSearchParams({
+      addresses: address,
+      chainIds: `${this._chainId}`,
+    });
+
+    const url = new URL(`${this._apiUrl}/check-all-by-addresses`);
+    url.search = parameters.toString();
+
+    const response = await sendGetRequest(url);
+    const json = await response.body.json();
+
+    if (json.message !== "OK") {
+      return false;
+    }
+
+    const sourceCode = json?.result?.[0]?.SourceCode;
+    return sourceCode !== undefined && sourceCode !== "";
+  }
+
+  // https://docs.sourcify.dev/docs/api/server/verify/
+  public async verify({
+    address,
+    files,
+    chosenContract
+  }: SourcifyVerifyRequestParams): Promise<SourcifyResponse> {
+    const parameters = {
+      address: "0x0BA90314761601E91ECA88C05F051AefeB743bc2",
+      files,
+      chosenContract,
+      chain: "5"// `${this._chainId}`
+    };
+
+    let response: Dispatcher.ResponseData;
+    try {
+      response = await sendPostJSONRequest(
+        new URL(this._apiUrl),
+        JSON.stringify(parameters)
+      );
+    } catch (error: any) {
+      console.error(error)
+      throw new ContractVerificationRequestError(this._apiUrl, error);
+    }
+
+    if (!(response.statusCode >= 200 && response.statusCode <= 299)) {
+      // This could be always interpreted as JSON if there were any such guarantee in the Sourcify API.
+      const responseText = await response.body.text();
+      throw new ContractVerificationInvalidStatusCodeError(
+        this._apiUrl,
+        response.statusCode,
+        responseText
+      );
+    }
+
+    const responseJson = await response.body.json()
+    const sourcifyResponse = new SourcifyResponse(responseJson);
+
+    if (!sourcifyResponse.isOk()) {
+      throw new HardhatSourcifyError(sourcifyResponse.error);
+    }
+
+    return sourcifyResponse;
+  }
+
+  // https://docs.sourcify.io/api-endpoints/contracts#check-source-code-verification-submission-status
+  public async getVerificationStatus(guid: string): Promise<SourcifyResponse> {
+    const parameters = new URLSearchParams({
+      module: "contract",
+      action: "checkverifystatus",
+      guid,
+    });
+    const url = new URL(this._apiUrl);
+    url.search = parameters.toString();
+
+    let response;
+    try {
+      response = await sendGetRequest(url);
+    } catch (error: any) {
+      throw new ContractStatusPollingError(url.toString(), error);
+    }
+
+    if (!(response.statusCode >= 200 && response.statusCode <= 299)) {
+      // This could be always interpreted as JSON if there were any such guarantee in the Sourcify API.
+      const responseText = await response.body.text();
+
+      throw new ContractStatusPollingInvalidStatusCodeError(
+        response.statusCode,
+        responseText
+      );
+    }
+
+    const sourcifyResponse = new SourcifyResponse(await response.body.json());
+
+    if (sourcifyResponse.isFailure()) {
+      return sourcifyResponse;
+    }
+
+    if (!sourcifyResponse.isOk()) {
+      throw new ContractStatusPollingResponseNotOkError(
+        sourcifyResponse.error
+      );
+    }
+
+    return sourcifyResponse;
+  }
+
+  public getContractUrl(address: string) {
+    return `${this._browserUrl}/contracts/full_match/${this._chainId}/${address}/`;
+  }
+}
+
+interface SourcifyContract {
+  address: string;
+  chainId: string;
+  status: string;
+  storageTimestamp: string;
+}
+
+class SourcifyResponse {
+  public readonly error: string;
+
+  public readonly result: SourcifyContract[];
+
+  constructor(response: any) {
+    this.error = response.error;
+    this.result = response.result;
+  }
+
+  public isFailure() {
+    return this.error !== undefined;
+  }
+
+  public isSuccess() {
+    return this.error === undefined;
+  }
+
+  public isOk() {
+    return this.result[0].status === "perfect" || this.result[0].status === "partial";
+  }
+}
+

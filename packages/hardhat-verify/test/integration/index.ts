@@ -4,7 +4,7 @@ import sinon from "sinon";
 import { assert, expect } from "chai";
 import { TASK_CLEAN, TASK_COMPILE } from "hardhat/builtin-tasks/task-names";
 import { SolcConfig } from "hardhat/types/config";
-import { TASK_VERIFY, TASK_VERIFY_VERIFY } from "../../src/task-names";
+import { TASK_VERIFY, TASK_VERIFY_SOURCIFY, TASK_VERIFY_VERIFY } from "../../src/task-names";
 import { deployContract, getRandomAddress, useEnvironment } from "../helpers";
 import {
   interceptGetStatus,
@@ -601,6 +601,32 @@ for verification on the block explorer. Waiting for verification result...
       expect(logStub.getCall(1)).to.be
         .calledWith(`Successfully verified contract BothLibs on Etherscan.
 https://hardhat.etherscan.io/address/${bothLibsContractAddress}#code`);
+      logStub.restore();
+      assert.isUndefined(taskResponse);
+    });
+
+    it.only("should verify a contract on Sourcify", async function () {
+      // TODO: implement mocks
+      /* interceptVerifySourcify({
+        status: 1,
+        result: "ezq878u486pzijkvvmerl6a9mzwhv6sefgvqi5tkwceejc7tvn",
+      });
+      interceptGetStatusSourcify(() => {
+        return {
+          status: 1,
+          result: "Pass - Verified",
+        };
+      }); */
+      const logStub = sinon.stub(console, "log");
+
+      const taskResponse = await this.hre.run(TASK_VERIFY_SOURCIFY, {
+        address: simpleContractAddress,
+        contractFQN: "contracts/SimpleContract.sol:SimpleContract"
+      });
+
+      assert.equal(logStub.callCount, 1);
+      expect(logStub.getCall(0)).to.be.calledWith(`Successfully verified contract SimpleContract on Sourcify.
+https://repo.sourcify.dev/contracts/full_match/31337/${simpleContractAddress}/`);
       logStub.restore();
       assert.isUndefined(taskResponse);
     });

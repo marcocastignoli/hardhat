@@ -27,6 +27,21 @@ export async function sendPostRequest(
   });
 }
 
+export async function sendPostJSONRequest(
+  url: URL,
+  body: string
+): Promise<Undici.Dispatcher.ResponseData> {
+  const { request } = await import("undici");
+  const dispatcher = getDispatcher();
+
+  return request(url, {
+    dispatcher,
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body,
+  });
+}
+
 function getDispatcher(): Undici.Dispatcher {
   const { ProxyAgent, getGlobalDispatcher } =
     require("undici") as typeof Undici;
