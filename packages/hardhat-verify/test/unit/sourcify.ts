@@ -9,9 +9,7 @@ describe("Sourcify", () => {
       const expectedContractAddress =
         "https://repo.sourcify.dev/contracts/full_match/100/0xC4c622862a8F548997699bE24EA4bc504e5cA865/";
       let sourcify = new Sourcify(chainId);
-      let contractUrl = sourcify.getContractUrl("0xC4c622862a8F548997699bE24EA4bc504e5cA865");
-
-      assert.equal(contractUrl, expectedContractAddress);
+      let contractUrl = sourcify.getContractUrl("0xC4c622862a8F548997699bE24EA4bc504e5cA865", "perfect");
 
       assert.equal(contractUrl, expectedContractAddress);
     });

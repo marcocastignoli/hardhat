@@ -51,15 +51,15 @@ export class Sourcify {
       chainIds: `${this._chainId}`,
     });
 
-    const url = new URL(`${this._apiUrl}/check-by-addresses`);
+    const url = new URL(`${this._apiUrl}/check-all-by-addresses`);
     url.search = parameters.toString();
 
     const response = await sendGetRequest(url);
     const json = await response.body.json();
 
     const contract = json.find((_contract: {address: string, status: string}) => _contract.address === address)
-    if (contract.status === "perfect") {
-      return true
+    if (contract.status === "perfect" || contract.status === "partial") {
+      return contract.status
     } else {
       return false
     }
@@ -109,8 +109,16 @@ export class Sourcify {
     return sourcifyResponse;
   }
 
-  public getContractUrl(address: string) {
-    return `${this._browserUrl}/contracts/full_match/${this._chainId}/${address}/`;
+  public getContractUrl(address: string, _matchType: string) {
+    let matchType
+    if (_matchType === 'perfect') {
+      matchType = 'full_match'
+    } else if(_matchType ===  'partial') {
+      matchType = 'partial_match'
+    } else {
+      throw 'Match type not supported'
+    }
+    return `${this._browserUrl}/contracts/${matchType}/${this._chainId}/${address}/`;
   }
 }
 
@@ -141,6 +149,10 @@ class SourcifyResponse {
 
   public isOk() {
     return this.result[0].status === "perfect" || this.result[0].status === "partial";
+  }
+
+  public getStatus() {
+    return this.result[0].status
   }
 }
 

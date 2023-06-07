@@ -122,7 +122,7 @@ interface VerificationInterface {
   isVerified(address: string): Promise<Boolean>
   verify(params: VerificationInterfaceVerifyParams): Promise<any>
   getVerificationStatus(guid: string): Promise<any>
-  getContractUrl(address: string): string
+  getContractUrl(address: string, status?: string): string
 }
 
 interface AttemptVerificationArgs {
@@ -656,9 +656,9 @@ subtask(TASK_VERIFY_SOURCIFY)
 
       const sourcify = new Sourcify(network.config.chainId);
 
-      const isVerified = await sourcify.isVerified(address);
-      if (isVerified) {
-        const contractURL = sourcify.getContractUrl(address);
+      const status = await sourcify.isVerified(address);
+      if (status !== false) {
+        const contractURL = sourcify.getContractUrl(address, status);
         console.log(`The contract ${address} has already been verified.
 ${contractURL}`);
         return;
@@ -722,7 +722,7 @@ subtask(TASK_VERIFY_SOURCIFY_ATTEMPT_VERIFICATION)
       }
 
       if (response.isSuccess()) {
-        const contractURL = verificationInterface.getContractUrl(address);
+        const contractURL = verificationInterface.getContractUrl(address, response.getStatus());
         console.log(`Successfully verified contract ${contractFQN.split(":")[1]} on Sourcify.
 ${contractURL}`);
       }
