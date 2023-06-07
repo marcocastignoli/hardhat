@@ -51,7 +51,7 @@ export class Sourcify {
       chainIds: `${this._chainId}`,
     });
 
-    const url = new URL(`${this._apiUrl}/check-all-by-addresses`);
+    const url = new URL(`${this._apiUrl}/check-by-addresses`);
     url.search = parameters.toString();
 
     const response = await sendGetRequest(url);

@@ -31,7 +31,7 @@ export const interceptSourcifyIsVerified = (response: any) =>
   client
     .intercept({
       method: "GET",
-      path: /\/server\/check-all-by-addresses\?addresses=0x[a-fA-F0-9]{40}&chainIds=[0-9]+/,
+      path: /\/server\/check-by-addresses\?addresses=0x[a-fA-F0-9]{40}&chainIds=[0-9]+/,
     })
     .reply(200, response);
 
