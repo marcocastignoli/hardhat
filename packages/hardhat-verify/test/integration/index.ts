@@ -14,10 +14,12 @@ import {
 } from "./mocks/etherscan";
 
 import "../../src/type-extensions";
+import { interceptSourcifyIsVerified, interceptSourcifyVerify, mockEnvironmentSourcify } from "./mocks/sourcify";
 
 describe("verify task integration tests", () => {
   useEnvironment("hardhat-project");
   mockEnvironment();
+  mockEnvironmentSourcify();
 
   it("should return after printing the supported networks", async function () {
     const logStub = sinon.stub(console, "log");
@@ -606,17 +608,15 @@ https://hardhat.etherscan.io/address/${bothLibsContractAddress}#code`);
     });
 
     it.only("should verify a contract on Sourcify", async function () {
-      // TODO: implement mocks
-      /* interceptVerifySourcify({
-        status: 1,
-        result: "ezq878u486pzijkvvmerl6a9mzwhv6sefgvqi5tkwceejc7tvn",
+      interceptSourcifyIsVerified([{"address":simpleContractAddress,"status":"false"}]);
+      interceptSourcifyVerify({
+        "result": [
+          {
+            "address": simpleContractAddress,
+            "status": "perfect"
+          }
+        ]
       });
-      interceptGetStatusSourcify(() => {
-        return {
-          status: 1,
-          result: "Pass - Verified",
-        };
-      }); */
       const logStub = sinon.stub(console, "log");
 
       const taskResponse = await this.hre.run(TASK_VERIFY_SOURCIFY, {

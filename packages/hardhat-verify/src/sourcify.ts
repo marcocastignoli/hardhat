@@ -57,12 +57,12 @@ export class Sourcify {
     const response = await sendGetRequest(url);
     const json = await response.body.json();
 
-    if (json.message !== "OK") {
-      return false;
+    const contract = json.find((_contract: {address: string, status: string}) => _contract.address === address)
+    if (contract.status === "perfect") {
+      return true
+    } else {
+      return false
     }
-
-    const sourceCode = json?.result?.[0]?.SourceCode;
-    return sourceCode !== undefined && sourceCode !== "";
   }
 
   // https://docs.sourcify.dev/docs/api/server/verify/
@@ -72,10 +72,10 @@ export class Sourcify {
     chosenContract
   }: SourcifyVerifyRequestParams): Promise<SourcifyResponse> {
     const parameters = {
-      address: "0x0BA90314761601E91ECA88C05F051AefeB743bc2",
+      address,
       files,
       chosenContract,
-      chain: "5"// `${this._chainId}`
+      chain: `${this._chainId}`
     };
 
     let response: Dispatcher.ResponseData;
@@ -104,48 +104,6 @@ export class Sourcify {
 
     if (!sourcifyResponse.isOk()) {
       throw new HardhatSourcifyError(sourcifyResponse.error);
-    }
-
-    return sourcifyResponse;
-  }
-
-  // https://docs.sourcify.io/api-endpoints/contracts#check-source-code-verification-submission-status
-  public async getVerificationStatus(guid: string): Promise<SourcifyResponse> {
-    const parameters = new URLSearchParams({
-      module: "contract",
-      action: "checkverifystatus",
-      guid,
-    });
-    const url = new URL(this._apiUrl);
-    url.search = parameters.toString();
-
-    let response;
-    try {
-      response = await sendGetRequest(url);
-    } catch (error: any) {
-      throw new ContractStatusPollingError(url.toString(), error);
-    }
-
-    if (!(response.statusCode >= 200 && response.statusCode <= 299)) {
-      // This could be always interpreted as JSON if there were any such guarantee in the Sourcify API.
-      const responseText = await response.body.text();
-
-      throw new ContractStatusPollingInvalidStatusCodeError(
-        response.statusCode,
-        responseText
-      );
-    }
-
-    const sourcifyResponse = new SourcifyResponse(await response.body.json());
-
-    if (sourcifyResponse.isFailure()) {
-      return sourcifyResponse;
-    }
-
-    if (!sourcifyResponse.isOk()) {
-      throw new ContractStatusPollingResponseNotOkError(
-        sourcifyResponse.error
-      );
     }
 
     return sourcifyResponse;
